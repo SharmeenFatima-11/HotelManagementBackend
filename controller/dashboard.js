@@ -2,37 +2,38 @@ const Hotel = require("../models/hotel");
 const User = require("../models/user");
 
 const dashController = {
-  // get dash
   async getHotels(req, res) {
     try {
-        const roomTypeCount = await Hotel.aggregate([
-            { $unwind: "$rooms" },  // Deconstructs the rooms array
-            { $group: { 
-                _id: "$rooms.roomType", 
-                count: { $sum: 1 }
-              } 
-            },
-            { $project: { 
-                _id: 0, 
-                roomType: "$_id", 
-                count: 1 
-              } 
-            }
-          ]);
-          const roomBooked = await Hotel.aggregate([
-            { $unwind: "$rooms" },  // Deconstructs the rooms array
-            { $group: { 
-                _id: "$rooms.isBooked", 
-                count: { $sum: 1 }
-              } 
-            },
-            { $project: { 
-                _id: 0, 
-                isBooked: "$_id", 
-                count: 1 
-              } 
-            }
-          ]);
+      const roomTypeCount = await Hotel.aggregate([
+        { $unwind: "$rooms" },  // Deconstructs the rooms array
+        { $group: { 
+            _id: "$rooms.roomType", 
+            count: { $sum: 1 }
+          } 
+        },
+        { $project: { 
+            _id: 0, 
+            roomType: "$_id", 
+            count: 1 
+          } 
+        }
+      ]);
+  
+      const roomBooked = await Hotel.aggregate([
+        { $unwind: "$rooms" },  // Deconstructs the rooms array
+        { $group: { 
+            _id: { isBooked: { $ifNull: ["$rooms.isBooked", false] } }, 
+            count: { $sum: 1 }
+          } 
+        },
+        { $project: { 
+            _id: 0, 
+            isBooked: "$_id.isBooked", 
+            count: 1 
+          } 
+        }
+      ]);
+  
       const customersCount = await User.aggregate([
         {
           $group: {
@@ -41,6 +42,7 @@ const dashController = {
           },
         },
       ]);
+  
       const roomsCount = await Hotel.aggregate([
         {
           $facet: {
@@ -56,10 +58,11 @@ const dashController = {
           }
         }
       ]);
+  
       // Extract the counts
       let guestCount = 0;
       let registeredCount = 0;
-
+  
       customersCount.forEach((group) => {
         if (group._id) {
           guestCount = group.count;
@@ -67,27 +70,37 @@ const dashController = {
           registeredCount = group.count;
         }
       });
+  
+      // Handle cases where there are no booked or available rooms
+      let bookedCount = 0;
+      let availableCount = 0;
+  
+      roomBooked.forEach((group) => {
+        if (group.isBooked) {
+          bookedCount = group.count;
+        } else {
+          availableCount = group.count;
+        }
+      });
+  
       let cards = [
         { name: "Guests", number: guestCount },
         { name: "Customers", number: registeredCount },
-        { name: "Rooms", number: roomsCount[0].totalRooms[0].totalRooms },
-        { name: "Hotels", number: roomsCount[0].numberOfHotels[0].numberOfHotels },
+        { name: "Rooms", number: roomsCount[0].totalRooms[0]?.totalRooms || 0 },
+        { name: "Hotels", number: roomsCount[0].numberOfHotels[0]?.numberOfHotels || 0 },
       ];
-      const booking = [{
-        name:'Booked',
-        value: roomBooked[1].count
-      },{
-        name:'available',
-        value: roomBooked[0].count
-      }]
-
-
-
+  
+      const booking = [
+        { name: 'Booked', value: bookedCount },
+        { name: 'Available', value: availableCount }
+      ];
+  
       return res.status(200).send({
         success: true,
-        data: { message: "details updated successfully", cards, rooms: roomTypeCount, roomBooked: booking },
+        data: { message: "Details updated successfully", cards, rooms: roomTypeCount, roomBooked: booking },
       });
     } catch (error) {
+      console.log("Error is ....", error);
       // Handle any unexpected errors
       res.status(500).send({
         success: false,
@@ -95,9 +108,7 @@ const dashController = {
       });
     }
   },
-};
-
-module.exports = dashController;
-
-// router.post("/login", async (req, res) => {
-// });
+}
+  
+  module.exports = dashController;
+  

@@ -19,7 +19,7 @@ const userController = {
           data: { error: "This user already exists" },
         });
       } else {
-        if (req.password) {
+        if (req.body.password) {
           const salt = await bcrypt.genSalt(10);
           user.password = await bcrypt.hash(user.password, salt);
         }
@@ -64,6 +64,7 @@ const userController = {
       const founduser = await User.findOne({
         email: userData.email,
         isGuest: false,
+        admin: true
       });
 
       if (!founduser) {
@@ -254,7 +255,7 @@ const userController = {
   // get all users
   async getUsers(req, res) {
     try {
-      let user = await User.find()
+      let user = await User.find({admin: false})
         .then((result) => {
           let users = [];
           result.map((val, ind) => {

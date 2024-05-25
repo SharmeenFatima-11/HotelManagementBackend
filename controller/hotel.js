@@ -3,7 +3,6 @@ const schedule = require("node-schedule");
 
 // book a room
 const deleteBooking = async () => {
-  console.log("in delete booking");
   try {
     const now = new Date();
 
@@ -21,7 +20,7 @@ const deleteBooking = async () => {
 };
 
 // Schedule the job to run daily at midnight
-const job = schedule.scheduleJob("0 0 * * *", deleteBooking);
+schedule.scheduleJob("0 0 * * *", deleteBooking);
 
 const hotelController = {
   async addHotel(req, res) {
@@ -52,6 +51,8 @@ const hotelController = {
         if (typeof hotelData.rooms == "string") {
           hotelData.rooms = JSON.parse(hotelData.rooms);
         }
+        let currentRoomNumber = 0; // Initialize currentRoomNumber outside the loop
+        
         if (Array.isArray(hotelData.rooms)) {
           hotelData.rooms.forEach((val) => {
             let noOfRooms = parseInt(val.noOfRooms);
@@ -59,9 +60,10 @@ const hotelController = {
             for (let i = 0; i < noOfRooms; i++) {
               let room = {
                 roomType: val.roomType,
-                roomNumber: i + 1, // Assuming room numbers start from 1
+                roomNumber: currentRoomNumber + 1, // Assign the current room number
               };
               rooms.push(room);
+              currentRoomNumber++; // Increment the room number
             }
           });
         }
